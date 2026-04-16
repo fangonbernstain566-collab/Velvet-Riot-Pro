@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Velvet Riot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 100vw; height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background: #1a1a2e;
+    }
+    .menu {
+      width: 700px; height: 500px;
+      background-image: url('assets/ss.png');
+      background-size: cover; background-position: center;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 0;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    }
+    h1 {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 32px;
+      color: #e8000a;
+      text-shadow: 3px 3px 0 #8b0000;
+      margin-bottom: 30px;
+    }
+    button {
+      display: block; width: 200px; padding: 12px 0; margin: 7px 0;
+      background: rgba(230,230,225,0.92);
+      border: none; border-radius: 32px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 13px; color: #222; letter-spacing: 2px;
+      cursor: pointer;
+      box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+      transition: transform 0.08s, box-shadow 0.08s;
+    }
+    button:hover {
+      background: #fff;
+      transform: translateY(-2px) scale(1.04);
+      box-shadow: 0 7px 0 rgba(0,0,0,0.15);
+    }
+    button:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.2); }
+  </style>
+</head>
+<body>
+  <div class="menu">
+    <h1>Velvet Riot</h1>
+    <button onclick="alert('Play!')">PLAY</button>
+    <button onclick="alert('Shop!')">SHOP</button>
+    <button onclick="alert('Settings!')">SETTINGS</button>
+  </div>
+</body>
+</html>
