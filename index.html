@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Velvet Riot</title>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -15,7 +14,7 @@
     }
     .menu {
       width: 700px; height: 500px;
-      background-image: url('./assets/ss.png');
+      background-image: url('assets/ss.png');
       background-size: cover; background-position: center;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
@@ -52,11 +51,9 @@
 <body>
   <div class="menu">
     <h1>Velvet Riot</h1>
-    <button onclick="startGame()">PLAY</button>
+    <button onclick="alert('Play!')">PLAY</button>
     <button onclick="alert('Shop!')">SHOP</button>
     <button onclick="alert('Settings!')">SETTINGS</button>
   </div>
-  <div id="game-container" style="display:none;"></div>
-  <script src="main.js"></script>
 </body>
 </html>
