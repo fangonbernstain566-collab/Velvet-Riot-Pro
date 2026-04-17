@@ -218,8 +218,8 @@ button:active {
 .modal-text {
   font-family: 'Press Start 2P', monospace;
   font-size: 18px;
-  color: #e8000a;
-  text-shadow: 2px 2px 0 #8b0000;
+  color: #ff0000;
+  text-shadow: 2px 2px 0 #000000;
   margin-bottom: 30px;
   line-height: 1.4;
 }
@@ -247,11 +247,11 @@ button:active {
 }
 
 .modal-cancel-btn {
-  color: #e8000a;
+  color: #000000;
 }
 
 .modal-buy-btn {
-  color: #e8000a;
+  color: #ff0000;
 }
 
 .modal-cancel-btn:hover,
