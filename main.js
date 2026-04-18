@@ -13,16 +13,8 @@ class GameScene extends Phaser.Scene {
             tex.refresh();
         };
 
-        // Sky gradient canvas
-        const skyTex = this.textures.createCanvas('sky', 800, 500);
-        const skyCtx = skyTex.getContext();
-        const grad = skyCtx.createLinearGradient(0, 0, 0, 500);
-        grad.addColorStop(0,   '#0d0d2b');
-        grad.addColorStop(0.6, '#1a1a4e');
-        grad.addColorStop(1,   '#2d1b4e');
-        skyCtx.fillStyle = grad;
-        skyCtx.fillRect(0, 0, 800, 500);
-        skyTex.refresh();
+        // Sky canvas - redrawn dynamically each frame
+        this.textures.createCanvas('sky', 800, 500).refresh();
 
         // Ground tile
         g('ground', ctx => {
@@ -118,41 +110,54 @@ class GameScene extends Phaser.Scene {
         this.score = 0;
         this.lives = 3;
         this.gameOver = false;
-        this.currentLevel = 1;
         this.levelComplete = false;
+        this.overlayShown = false; // guard: only ONE overlay can ever show
 
-        // ── Sky ──────────────────────────────────────────────────────────────
-        this.add.image(W / 2, H / 2, 'sky').setScrollFactor(0);
+        // Use registry to persist currentLevel across scene restarts
+        if (!this.registry.has('currentLevel')) {
+            this.registry.set('currentLevel', 1);
+        }
+        this.currentLevel = this.registry.get('currentLevel');
 
-        // ── Stars ────────────────────────────────────────────────────────────
-        for (let i = 0; i < 80; i++) {
+        // ── Dynamic Sky ──────────────────────────────────────────────────────
+        this.skyTime = 0.25; // start at sunrise
+        this.skyImg = this.add.image(W / 2, H / 2, 'sky').setScrollFactor(0).setDepth(0);
+
+        // ── Stars (hidden at day, shown at night) ────────────────────────────
+        this.starObjs = [];
+        for (let i = 0; i < 90; i++) {
             const star = this.add.circle(
                 Phaser.Math.Between(0, W),
-                Phaser.Math.Between(0, H * 0.65),
+                Phaser.Math.Between(0, H * 0.70),
                 Phaser.Math.Between(1, 2),
-                0xffffff,
-                Phaser.Math.FloatBetween(0.3, 1)
-            ).setScrollFactor(0.1);
+                0xffffff, 0
+            ).setScrollFactor(0).setDepth(1);
+            this.starObjs.push(star);
         }
 
-        // ── Background buildings (parallax layer) ────────────────────────────
+        // Sun/Moon disc
+        this.sunDisc = this.add.circle(W / 2, H * 0.3, 26, 0xfffde0)
+            .setScrollFactor(0).setDepth(1);
+
+        // ── Background buildings (parallax layer, windows stored for night) ──
+        this.windowObjs = []; // all window rects stored here
         this.buildingLayer = this.add.group();
         for (let i = 0; i < 14; i++) {
             const bh = Phaser.Math.Between(80, 200);
             const bw = Phaser.Math.Between(40, 90);
             const bx = i * 120 + Phaser.Math.Between(-20, 20);
-            const rect = this.add.rectangle(bx, this.GROUND_Y - bh / 2, bw, bh, 0x0a0a1e)
-                .setScrollFactor(0.3);
-            // windows
+            this.add.rectangle(bx, this.GROUND_Y - bh / 2, bw, bh, 0x0a0a1e)
+                .setScrollFactor(0.3).setDepth(2);
             for (let wy = 0; wy < Math.floor(bh / 18); wy++) {
                 for (let wx = 0; wx < Math.floor(bw / 14); wx++) {
-                    const lit = Math.random() > 0.45;
-                    this.add.rectangle(
+                    const win = this.add.rectangle(
                         bx - bw / 2 + 8 + wx * 14,
                         this.GROUND_Y - bh + 10 + wy * 18,
                         8, 10,
-                        lit ? 0xffdd88 : 0x1a1a3e
-                    ).setScrollFactor(0.3);
+                        0x1a1a3e
+                    ).setScrollFactor(0.3).setDepth(3);
+                    win.isLit = Math.random() > 0.45;
+                    this.windowObjs.push(win);
                 }
             }
         }
@@ -168,45 +173,15 @@ class GameScene extends Phaser.Scene {
             if (!inGap) {
                 const t = this.groundGroup.create(x + 32, this.GROUND_Y + 30, 'ground');
                 t.setDisplaySize(64, 60).refreshBody();
+                t.setDepth(4);
             }
         }
 
-        // ── Platforms ─────────────────────────────────────────────────────────
-        this.platforms = this.physics.add.staticGroup();
-        const platDefs = [
-            { x: 300, y: 320, w: 3 },
-            { x: 550, y: 260, w: 2 },
-            { x: 750, y: 300, w: 3 },
-            { x: 1000, y: 280, w: 3 },
-            { x: 1200, y: 220, w: 2 },
-            { x: 1350, y: 300, w: 3 },
-            { x: 1600, y: 260, w: 3 },
-            { x: 1800, y: 300, w: 2 },
-            { x: 2000, y: 240, w: 3 },
-            { x: 2200, y: 280, w: 2 },
-        ];
-        platDefs.forEach(({ x, y, w }) => {
-            for (let i = 0; i < w; i++) {
-                const p = this.platforms.create(x + i * 64, y, 'platform');
-                p.setDisplaySize(64, 24).refreshBody();
-            }
-        });
-
-        // ── Coins ─────────────────────────────────────────────────────────────
+        // ── Coins (ground only) ───────────────────────────────────────────────
         this.coins = this.physics.add.staticGroup();
-        const coinPositions = [
-            320, 360, 570, 260, 770, 300, 1020, 280,
-            1220, 220, 1370, 300, 1620, 260, 1820, 300,
-            2020, 240, 2220, 280,
-        ];
-        for (let i = 0; i < coinPositions.length; i += 2) {
-            this.coins.create(coinPositions[i], coinPositions[i + 1] - 30, 'coin')
-                .setDisplaySize(20, 20).refreshBody();
-        }
-        // ground coins
         for (let x = 200; x < WORLD_W - 200; x += 180) {
             this.coins.create(x, this.GROUND_Y - 30, 'coin')
-                .setDisplaySize(20, 20).refreshBody();
+                .setDisplaySize(20, 20).refreshBody().setDepth(5);
         }
 
         // ── Player ────────────────────────────────────────────────────────────
@@ -216,6 +191,7 @@ class GameScene extends Phaser.Scene {
         this.player.setBounce(0.1);
         this.player.setCollideWorldBounds(true);
         this.player.body.setGravityY(200);
+        this.player.setDepth(5);
 
         // ── Enemies - Different for each level ────────────────────────────────
         this.enemies = this.physics.add.group();
@@ -231,20 +207,18 @@ class GameScene extends Phaser.Scene {
 
         // ── Colliders ────────────────────────────────────────────────────────
         this.physics.add.collider(this.player, this.groundGroup);
-        this.physics.add.collider(this.player, this.platforms);
         this.physics.add.collider(this.enemies, this.groundGroup);
-        this.physics.add.collider(this.enemies, this.platforms);
 
         this.physics.add.overlap(this.player, this.coins, (player, coin) => {
-            coin.destroy();
+            coin.disableBody(true, true);
             this.score += 10;
             this.scoreTxt.setText('SCORE: ' + this.score);
         });
 
         this.physics.add.overlap(this.bullets, this.enemies, (bullet, enemy) => {
             if (!bullet.active || !enemy.active) return;
-            bullet.destroy();
-            enemy.destroy();
+            bullet.disableBody(true, true);
+            enemy.disableBody(true, true);
             this.score += 50;
             this.scoreTxt.setText('SCORE: ' + this.score);
             this.spawnExplosion(enemy.x, enemy.y);
@@ -254,7 +228,7 @@ class GameScene extends Phaser.Scene {
         this.physics.add.overlap(this.player, this.enemies, (player, enemy) => {
             if (!enemy.active) return;
             if (this.player.body.velocity.y > 0 && player.y < enemy.y - 20) {
-                enemy.destroy();
+                enemy.disableBody(true, true);
                 this.player.setVelocityY(-350);
                 this.score += 30;
                 this.scoreTxt.setText('SCORE: ' + this.score);
@@ -311,8 +285,13 @@ class GameScene extends Phaser.Scene {
             padding: { x: 6, y: 4 },
         }).setOrigin(0, 1).setInteractive({ useHandCursor: true }).setScrollFactor(0).setDepth(10);
         backBtn.on('pointerup', () => {
+            this.registry.set('currentLevel', 1);
+            this.scene.stop();
             document.getElementById('game-container').style.display = 'none';
             document.getElementById('mainMenu').style.display = 'flex';
+            setTimeout(() => {
+                if (game) { game.destroy(true); game = null; }
+            }, 100);
         });
 
         this.invincible = false;
@@ -325,18 +304,14 @@ class GameScene extends Phaser.Scene {
         if (this.currentLevel === 1) {
             enemyDefs = [
                 { x: 400,  type: 'robot' },
-                { x: 650,  type: 'cat'   },
-                { x: 900,  type: 'robot' },
+                { x: 600,  type: 'cat'   },
+                { x: 800,  type: 'robot' },
+                { x: 1000, type: 'cat'   },
+                { x: 1200, type: 'robot' },
+                { x: 1500, type: 'cat'   },
+                { x: 1800, type: 'robot' },
             ];
         } else if (this.currentLevel === 2) {
-            enemyDefs = [
-                { x: 350,  type: 'robot' },
-                { x: 550,  type: 'cat'   },
-                { x: 750,  type: 'robot' },
-                { x: 950,  type: 'cat'   },
-                { x: 1150, type: 'robot' },
-            ];
-        } else if (this.currentLevel === 3) {
             enemyDefs = [
                 { x: 300,  type: 'robot' },
                 { x: 500,  type: 'cat'   },
@@ -345,6 +320,24 @@ class GameScene extends Phaser.Scene {
                 { x: 1100, type: 'robot' },
                 { x: 1300, type: 'cat'   },
                 { x: 1500, type: 'robot' },
+                { x: 1700, type: 'cat'   },
+                { x: 1900, type: 'robot' },
+                { x: 2100, type: 'cat'   },
+            ];
+        } else if (this.currentLevel === 3) {
+            enemyDefs = [
+                { x: 250,  type: 'robot' },
+                { x: 450,  type: 'cat'   },
+                { x: 650,  type: 'robot' },
+                { x: 850,  type: 'cat'   },
+                { x: 1050, type: 'robot' },
+                { x: 1250, type: 'cat'   },
+                { x: 1450, type: 'robot' },
+                { x: 1650, type: 'cat'   },
+                { x: 1850, type: 'robot' },
+                { x: 2050, type: 'cat'   },
+                { x: 2200, type: 'robot' },
+                { x: 2350, type: 'cat'   },
             ];
         }
 
@@ -356,13 +349,15 @@ class GameScene extends Phaser.Scene {
             e.body.setGravityY(200);
             e.setVelocityX(Phaser.Math.Between(60, 100) * (Math.random() > 0.5 ? 1 : -1));
             e.enemyType = type;
+            e.setDepth(5);
         });
     }
 
     // ── Check if level is complete ────────────────────────────────────────────
     checkLevelComplete() {
-        if (this.enemies.countActive() === 0 && !this.levelComplete) {
+        if (this.enemies.countActive() === 0 && !this.levelComplete && !this.overlayShown) {
             this.levelComplete = true;
+            this.overlayShown = true;
             if (this.currentLevel < 3) {
                 this.showLevelComplete();
             } else {
@@ -404,10 +399,7 @@ class GameScene extends Phaser.Scene {
 
     // ── Load Next Level ──────────────────────────────────────────────────────
     loadNextLevel() {
-        this.currentLevel++;
-        this.levelComplete = false;
-        this.gameOver = false;
-        this.lives = 3;
+        this.registry.set('currentLevel', this.currentLevel + 1);
         this.scene.restart();
     }
 
@@ -446,9 +438,13 @@ class GameScene extends Phaser.Scene {
             padding: { x: 12, y: 8 },
         }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setScrollFactor(0).setDepth(21);
         restartBtn.on('pointerup', () => {
-            this.currentLevel = 1;
+            this.registry.set('currentLevel', 1);
+            this.scene.stop();
             document.getElementById('game-container').style.display = 'none';
             document.getElementById('mainMenu').style.display = 'flex';
+            setTimeout(() => {
+                if (game) { game.destroy(true); game = null; }
+            }, 100);
         });
     }
 
@@ -470,7 +466,7 @@ class GameScene extends Phaser.Scene {
     }
 
     hitPlayer() {
-        if (this.invincible || this.gameOver) return;
+        if (this.invincible || this.gameOver || this.overlayShown) return;
         this.lives--;
         this.livesTxt.setText('LIVES: ' + this.lives);
         this.invincible = true;
@@ -491,6 +487,7 @@ class GameScene extends Phaser.Scene {
 
         if (this.lives <= 0) {
             this.gameOver = true;
+            this.overlayShown = true;
             this.showGameOver();
         }
     }
@@ -522,9 +519,13 @@ class GameScene extends Phaser.Scene {
             padding: { x: 12, y: 8 },
         }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setScrollFactor(0).setDepth(21);
         restart.on('pointerup', () => {
-            this.currentLevel = 1;
+            this.registry.set('currentLevel', 1);
+            this.scene.stop();
             document.getElementById('game-container').style.display = 'none';
             document.getElementById('mainMenu').style.display = 'flex';
+            setTimeout(() => {
+                if (game) { game.destroy(true); game = null; }
+            }, 100);
         });
     }
 
@@ -552,16 +553,19 @@ class GameScene extends Phaser.Scene {
             this.player.setVelocityY(-520);
         }
 
-        // Shoot - BULLET CENTERED ON CHARACTER
+        // Shoot - BULLET SLIGHTLY BELOW CENTER
         if (Phaser.Input.Keyboard.JustDown(this.shootKey) && time > this.lastShot + 300) {
             this.lastShot = time;
-            const b = this.bullets.get(this.player.x, this.player.y, 'bullet');  // CENTER Y (was y - 10)
+            const bulletY = this.player.y + 12;
+            const bx = this.player.x;
+            const b = this.bullets.get(bx, bulletY, 'bullet');
             if (b) {
-                b.setActive(true).setVisible(true).setDisplaySize(24, 12);
-                b.body.reset(this.player.x, this.player.y);  // CENTER (was y - 10)
+                b.enableBody(true, bx, bulletY, true, true);
+                b.setDisplaySize(24, 12);
                 b.setVelocityX(this.player.flipX ? -600 : 600);
+                b.setVelocityY(0);
                 b.body.setAllowGravity(false);
-                this.time.delayedCall(1200, () => { if (b.active) b.destroy(); });
+                this.time.delayedCall(1200, () => { if (b.active) b.disableBody(true, true); });
             }
         }
 
@@ -571,6 +575,74 @@ class GameScene extends Phaser.Scene {
             this.player.setPosition(100, this.GROUND_Y - 40);
             this.player.setVelocity(0, 0);
         }
+
+        // ── Day/Night cycle ──────────────────────────────────────────────────
+        this.skyTime = (this.skyTime + 0.00008) % 1.0;
+        const t = this.skyTime;
+
+        // Helper: lerp between two hex colors
+        const lerpColor = (a, b, f) => {
+            const ar = (a>>16)&0xff, ag = (a>>8)&0xff, ab = a&0xff;
+            const br = (b>>16)&0xff, bg = (b>>8)&0xff, bb = b&0xff;
+            return (Math.round(ar+(br-ar)*f)<<16)|(Math.round(ag+(bg-ag)*f)<<8)|Math.round(ab+(bb-ab)*f);
+        };
+
+        // Sky color keyframes: night->sunrise->day->sunset->night
+        // t: 0=night, 0.2=sunrise, 0.45=day, 0.7=sunset, 0.85=night
+        const skyKeys = [
+            { t: 0.00, top: 0x0d0d2b, bot: 0x1a1a4e },
+            { t: 0.20, top: 0xff6b35, bot: 0xffc87a },
+            { t: 0.45, top: 0x4ab0e8, bot: 0x87ceeb },
+            { t: 0.70, top: 0xff4500, bot: 0xff8c42 },
+            { t: 0.85, top: 0x0d0d2b, bot: 0x1a1a4e },
+            { t: 1.00, top: 0x0d0d2b, bot: 0x1a1a4e },
+        ];
+        let k0 = skyKeys[0], k1 = skyKeys[1];
+        for (let i = 0; i < skyKeys.length - 1; i++) {
+            if (t >= skyKeys[i].t && t < skyKeys[i+1].t) { k0 = skyKeys[i]; k1 = skyKeys[i+1]; break; }
+        }
+        const span = k1.t - k0.t;
+        const f = span > 0 ? (t - k0.t) / span : 0;
+        const topCol = lerpColor(k0.top, k1.top, f);
+        const botCol = lerpColor(k0.bot, k1.bot, f);
+
+        // Redraw sky canvas with gradient
+        const skyTex = this.textures.get('sky');
+        const skyCtx = skyTex.getSourceImage();
+        if (skyCtx && skyCtx.getContext) {
+            const ctx = skyCtx.getContext('2d');
+            const grad = ctx.createLinearGradient(0, 0, 0, 500);
+            const toHex = c => '#' + c.toString(16).padStart(6,'0');
+            grad.addColorStop(0, toHex(topCol));
+            grad.addColorStop(1, toHex(botCol));
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 800, 500);
+            skyTex.refresh();
+        }
+
+        // Sun/Moon position: arc across sky
+        const W2 = this.scale.width;
+        const H2 = this.scale.height;
+        const angle = t * Math.PI * 2;
+        const sunX = W2 * 0.1 + W2 * 0.8 * ((t < 0.5 ? t * 2 : (t - 0.5) * 2));
+        const sunY = H2 * 0.7 - Math.sin(t * Math.PI * 2) * H2 * 0.55;
+        this.sunDisc.setPosition(sunX, sunY);
+        // Day = sun (yellow), Night = moon (pale blue-white)
+        const isNight = t < 0.15 || t > 0.80;
+        const isDawn  = (t >= 0.15 && t < 0.35) || (t >= 0.65 && t <= 0.80);
+        this.sunDisc.setFillStyle(isNight ? 0xdde8ff : isDawn ? 0xffaa44 : 0xfff176);
+        this.sunDisc.setRadius(isNight ? 20 : 26);
+
+        // Stars: fade in at night, fade out at day
+        const starAlpha = isNight ? 0.9 : (isDawn ? 0.2 : 0);
+        this.starObjs.forEach(s => s.setAlpha(starAlpha * (0.4 + Math.random() * 0.6)));
+
+        // Building windows: lit yellow at night, dark at day
+        const winCol = isNight ? 0xffdd88 : 0x1a1a3e;
+        const winAlpha = isNight ? 1 : (isDawn ? 0.4 : 0);
+        this.windowObjs.forEach(w => {
+            if (w.isLit) { w.setFillStyle(winCol); w.setAlpha(winAlpha); }
+        });
     }
 }
 
@@ -597,9 +669,9 @@ function startGame() {
     document.getElementById('mainMenu').style.display = 'none';
     document.getElementById('game-container').style.display = 'block';
     
-    if (!game) {
-        game = new Phaser.Game(config);
-    } else {
-        game.scene.start('GameScene');
+    if (game) {
+        game.destroy(true);
+        game = null;
     }
+    game = new Phaser.Game(config);
 }

@@ -1,2 +1,37 @@
 characters should be 64x64 size
 for no error 
+
+gameplay no idea yet
+add sound
+fix  animation character 
+implement new character
+enemies design 
+enemies animation 
+add more levels
+fix restart and next level function
+coins implementation since its only in front end html not yet in the game
+
+
+
+File Structure:
+
+index.html — The skeleton of the whole game. It sets up two "screens": the main menu div (#mainMenu) and the game container div 
+(#game-container). It loads all the external scripts (Phaser library, your JS files, the Google Font), 
+and links the CSS. It's basically the glue that holds everything together in the browser.
+
+style.css — Yes, this is only for the main menu and the HTML UI. It styles the main menu background, the title text, the buttons,
+layout centering, fonts, etc. Once you click Play and Phaser takes over, CSS has zero control — Phaser renders everything on a
+<canvas> element with its own internal rendering engine. So any in-game visuals (HUD, enemies, platforms, buttons) 
+are all drawn by Phaser, not CSS.
+
+script.js — This handles the main menu logic only. Things like button click handlers for Play, maybe difficulty selection,
+showing/hiding the menu, and calling startGame() which is defined in main.js. It's the bridge between the HTML menu and 
+the Phaser game.
+
+main.js — This is the entire game. Everything Phaser-related lives here: the GameScene class which contains preload()
+(loads/generates all assets), create() (builds the level — ground, platforms, enemies, coins, player, HUD, colliders), 
+and update() (runs every frame — movement, shooting, input). It also has all the game logic like hitPlayer(), 
+checkLevelComplete(), showGameOver(), showLevelComplete(), showGameWin(), and the Phaser game config at the bottom. 
+This is the file we've been fixing.
+
+index.html + style.css + script.js are all just the front door (main menu). main.js is the actual game.
