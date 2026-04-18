@@ -7,14 +7,16 @@ class GameScene extends Phaser.Scene {
         this.load.image('char', 'assets/char.png');
 
         // ── Generate all assets procedurally (no external files needed) ──
+        // Guard: skip if texture already exists (scene.restart() re-runs preload)
         const g = (key, fn) => {
+            if (this.textures.exists(key)) return;
             const tex = this.textures.createCanvas(key, 64, 64);
             fn(tex.getContext());
             tex.refresh();
         };
 
         // Sky canvas - redrawn dynamically each frame
-        this.textures.createCanvas('sky', 800, 500).refresh();
+        if (!this.textures.exists('sky')) this.textures.createCanvas('sky', 800, 500).refresh();
 
         // Ground tile
         g('ground', ctx => {
@@ -185,6 +187,20 @@ class GameScene extends Phaser.Scene {
         }
 
         // ── Player ────────────────────────────────────────────────────────────
+        // Create fallback texture if char failed to load
+        if (!this.textures.exists('char') && !this.textures.exists('char_fallback')) {
+            const fb = this.textures.createCanvas('char_fallback', 48, 64);
+            const fc = fb.getContext();
+            fc.fillStyle = '#44aaff';
+            fc.fillRect(8, 0, 32, 40);
+            fc.fillStyle = '#2288dd';
+            fc.fillRect(10, 40, 12, 24);
+            fc.fillRect(26, 40, 12, 24);
+            fc.fillStyle = '#ffffff';
+            fc.fillRect(14, 8, 8, 8);
+            fc.fillRect(26, 8, 8, 8);
+            fb.refresh();
+        }
         const charKey = this.textures.exists('char') ? 'char' : 'char_fallback';
         this.player = this.physics.add.sprite(100, this.GROUND_Y - 40, charKey);
         this.player.setScale(1.5);  // SMALLER SIZE (was 2)
