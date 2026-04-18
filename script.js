@@ -15,7 +15,9 @@ const shopItems = [
 ];
 
 function showPlay() {
-  alert('Play!');
+  document.getElementById('mainMenu').style.display = 'none';
+  document.getElementById('game-container').style.display = 'block';
+  startGame();
 }
 
 function showShop() {
@@ -25,11 +27,13 @@ function showShop() {
 }
 
 function showSettings() {
-  alert('Settings!');
+  document.getElementById('mainMenu').style.display = 'none';
+  document.getElementById('settingsScreen').style.display = 'flex';
 }
 
 function backToMenu() {
   document.getElementById('shopScreen').style.display = 'none';
+  document.getElementById('settingsScreen').style.display = 'none';
   document.getElementById('mainMenu').style.display = 'flex';
 }
 

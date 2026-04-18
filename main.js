@@ -1,63 +1,3 @@
-class MainMenuScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'MainMenu' });
-    }
-
-    preload() {
-        this.load.image('bg', 'assets/bg.png');
-    }
-
-    create() {
-        const W = this.scale.width;
-        const H = this.scale.height;
-
-        try {
-            const bg = this.add.image(W / 2, H / 2, 'bg');
-            bg.setDisplaySize(W, H);
-        } catch(e) {
-            this.add.rectangle(W / 2, H / 2, W, H, 0x1a1a2e);
-        }
-
-        this.add.text(W / 2, H * 0.28, 'Velvet Riot', {
-            fontFamily: '"Press Start 2P"',
-            fontSize: '32px',
-            color: '#e8000a',
-            stroke: '#8b0000',
-            strokeThickness: 4,
-        }).setOrigin(0.5);
-
-        const makeButton = (y, label, callback) => {
-            const btnW = 220, btnH = 48, radius = 24;
-            const btn = this.add.graphics();
-
-            const drawBtn = (color) => {
-                btn.clear();
-                btn.fillStyle(color, 1);
-                btn.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, radius);
-            };
-            drawBtn(0xe6e6e1);
-            btn.setPosition(W / 2, y);
-
-            const txt = this.add.text(W / 2, y, label, {
-                fontFamily: '"Press Start 2P"',
-                fontSize: '13px',
-                color: '#222222',
-            }).setOrigin(0.5);
-
-            const zone = this.add.zone(W / 2, y, btnW, btnH).setInteractive({ useHandCursor: true });
-            zone.on('pointerover', () => { drawBtn(0xffffff); this.tweens.add({ targets: [btn, txt], y: y - 2, duration: 80 }); });
-            zone.on('pointerout',  () => { drawBtn(0xe6e6e1); this.tweens.add({ targets: [btn, txt], y: y,     duration: 80 }); });
-            zone.on('pointerdown', () => { drawBtn(0xccccc8); });
-            zone.on('pointerup',   () => { drawBtn(0xe6e6e1); callback(); });
-        };
-
-        makeButton(H * 0.50, 'PLAY',     () => this.scene.start('GameScene'));
-        makeButton(H * 0.62, 'SHOP',     () => {});
-        makeButton(H * 0.74, 'SETTINGS', () => {});
-    }
-}
-
-
 class GameScene extends Phaser.Scene {
     constructor() {
         super({ key: 'GameScene' });
@@ -178,6 +118,8 @@ class GameScene extends Phaser.Scene {
         this.score = 0;
         this.lives = 3;
         this.gameOver = false;
+        this.currentLevel = 1;
+        this.levelComplete = false;
 
         // ── Sky ──────────────────────────────────────────────────────────────
         this.add.image(W / 2, H / 2, 'sky').setScrollFactor(0);
@@ -222,7 +164,6 @@ class GameScene extends Phaser.Scene {
         // ── Ground ────────────────────────────────────────────────────────────
         this.groundGroup = this.physics.add.staticGroup();
         for (let x = 0; x < WORLD_W; x += 64) {
-            // gap at x=700-820 and x=1300-1420
             const inGap = (x > 680 && x < 820) || (x > 1280 && x < 1420);
             if (!inGap) {
                 const t = this.groundGroup.create(x + 32, this.GROUND_Y + 30, 'ground');
@@ -235,10 +176,10 @@ class GameScene extends Phaser.Scene {
         const platDefs = [
             { x: 300, y: 320, w: 3 },
             { x: 550, y: 260, w: 2 },
-            { x: 750, y: 300, w: 3 },  // over gap
+            { x: 750, y: 300, w: 3 },
             { x: 1000, y: 280, w: 3 },
             { x: 1200, y: 220, w: 2 },
-            { x: 1350, y: 300, w: 3 }, // over gap
+            { x: 1350, y: 300, w: 3 },
             { x: 1600, y: 260, w: 3 },
             { x: 1800, y: 300, w: 2 },
             { x: 2000, y: 240, w: 3 },
@@ -269,34 +210,16 @@ class GameScene extends Phaser.Scene {
         }
 
         // ── Player ────────────────────────────────────────────────────────────
-        this.player = this.physics.add.sprite(100, this.GROUND_Y - 40, 'char');
-        this.player.setScale(2);
+        const charKey = this.textures.exists('char') ? 'char' : 'char_fallback';
+        this.player = this.physics.add.sprite(100, this.GROUND_Y - 40, charKey);
+        this.player.setScale(1.5);  // SMALLER SIZE (was 2)
         this.player.setBounce(0.1);
         this.player.setCollideWorldBounds(true);
         this.player.body.setGravityY(200);
 
-        // ── Enemies ───────────────────────────────────────────────────────────
+        // ── Enemies - Different for each level ────────────────────────────────
         this.enemies = this.physics.add.group();
-        const enemyDefs = [
-            { x: 400,  type: 'robot' },
-            { x: 650,  type: 'cat'   },
-            { x: 900,  type: 'robot' },
-            { x: 1100, type: 'cat'   },
-            { x: 1500, type: 'robot' },
-            { x: 1700, type: 'cat'   },
-            { x: 1900, type: 'robot' },
-            { x: 2100, type: 'cat'   },
-            { x: 2300, type: 'robot' },
-        ];
-        enemyDefs.forEach(({ x, type }) => {
-            const e = this.enemies.create(x, this.GROUND_Y - 32, type);
-            e.setDisplaySize(48, 56).refreshBody();
-            e.setCollideWorldBounds(true);
-            e.setBounce(1);
-            e.body.setGravityY(200);
-            e.setVelocityX(Phaser.Math.Between(60, 100) * (Math.random() > 0.5 ? 1 : -1));
-            e.enemyType = type;
-        });
+        this.createLevelEnemies();
 
         // ── Bullets ───────────────────────────────────────────────────────────
         this.bullets = this.physics.add.group({
@@ -319,21 +242,24 @@ class GameScene extends Phaser.Scene {
         });
 
         this.physics.add.overlap(this.bullets, this.enemies, (bullet, enemy) => {
+            if (!bullet.active || !enemy.active) return;
             bullet.destroy();
             enemy.destroy();
             this.score += 50;
             this.scoreTxt.setText('SCORE: ' + this.score);
             this.spawnExplosion(enemy.x, enemy.y);
+            this.checkLevelComplete();
         });
 
         this.physics.add.overlap(this.player, this.enemies, (player, enemy) => {
+            if (!enemy.active) return;
             if (this.player.body.velocity.y > 0 && player.y < enemy.y - 20) {
-                // stomped
                 enemy.destroy();
                 this.player.setVelocityY(-350);
                 this.score += 30;
                 this.scoreTxt.setText('SCORE: ' + this.score);
                 this.spawnExplosion(enemy.x, enemy.y);
+                this.checkLevelComplete();
             } else {
                 this.hitPlayer();
             }
@@ -358,6 +284,12 @@ class GameScene extends Phaser.Scene {
             color: '#ffffff',
         }).setScrollFactor(0).setDepth(10);
 
+        this.levelTxt = this.add.text(W / 2, 16, 'LEVEL: 1', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '12px',
+            color: '#ffdd00',
+        }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(10);
+
         this.livesTxt = this.add.text(W - 16, 16, 'LIVES: 3', {
             fontFamily: '"Press Start 2P"',
             fontSize: '12px',
@@ -378,10 +310,146 @@ class GameScene extends Phaser.Scene {
             backgroundColor: '#00000066',
             padding: { x: 6, y: 4 },
         }).setOrigin(0, 1).setInteractive({ useHandCursor: true }).setScrollFactor(0).setDepth(10);
-        backBtn.on('pointerup', () => this.scene.start('MainMenu'));
+        backBtn.on('pointerup', () => {
+            document.getElementById('game-container').style.display = 'none';
+            document.getElementById('mainMenu').style.display = 'flex';
+        });
 
-        // ── Invincibility flag ────────────────────────────────────────────────
         this.invincible = false;
+    }
+
+    // ── Level Enemy Creation ──────────────────────────────────────────────────
+    createLevelEnemies() {
+        let enemyDefs = [];
+
+        if (this.currentLevel === 1) {
+            enemyDefs = [
+                { x: 400,  type: 'robot' },
+                { x: 650,  type: 'cat'   },
+                { x: 900,  type: 'robot' },
+            ];
+        } else if (this.currentLevel === 2) {
+            enemyDefs = [
+                { x: 350,  type: 'robot' },
+                { x: 550,  type: 'cat'   },
+                { x: 750,  type: 'robot' },
+                { x: 950,  type: 'cat'   },
+                { x: 1150, type: 'robot' },
+            ];
+        } else if (this.currentLevel === 3) {
+            enemyDefs = [
+                { x: 300,  type: 'robot' },
+                { x: 500,  type: 'cat'   },
+                { x: 700,  type: 'robot' },
+                { x: 900,  type: 'cat'   },
+                { x: 1100, type: 'robot' },
+                { x: 1300, type: 'cat'   },
+                { x: 1500, type: 'robot' },
+            ];
+        }
+
+        enemyDefs.forEach(({ x, type }) => {
+            const e = this.enemies.create(x, this.GROUND_Y - 32, type);
+            e.setDisplaySize(48, 56).refreshBody();
+            e.setCollideWorldBounds(true);
+            e.setBounce(1);
+            e.body.setGravityY(200);
+            e.setVelocityX(Phaser.Math.Between(60, 100) * (Math.random() > 0.5 ? 1 : -1));
+            e.enemyType = type;
+        });
+    }
+
+    // ── Check if level is complete ────────────────────────────────────────────
+    checkLevelComplete() {
+        if (this.enemies.countActive() === 0 && !this.levelComplete) {
+            this.levelComplete = true;
+            if (this.currentLevel < 3) {
+                this.showLevelComplete();
+            } else {
+                this.showGameWin();
+            }
+        }
+    }
+
+    // ── Show Level Complete Screen ────────────────────────────────────────────
+    showLevelComplete() {
+        const W = this.scale.width;
+        const H = this.scale.height;
+        this.gameOver = true;
+
+        const panel = this.add.rectangle(W / 2, H / 2, 360, 200, 0x000000, 0.85)
+            .setScrollFactor(0).setDepth(20);
+
+        this.add.text(W / 2, H / 2 - 60, 'LEVEL COMPLETE!', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '20px',
+            color: '#00ff00',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(21);
+
+        this.add.text(W / 2, H / 2 - 10, 'SCORE: ' + this.score, {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '12px',
+            color: '#ffdd00',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(21);
+
+        const nextBtn = this.add.text(W / 2, H / 2 + 50, '[ NEXT LEVEL ]', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '12px',
+            color: '#ffffff',
+            backgroundColor: '#00aa00',
+            padding: { x: 12, y: 8 },
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setScrollFactor(0).setDepth(21);
+        nextBtn.on('pointerup', () => this.loadNextLevel());
+    }
+
+    // ── Load Next Level ──────────────────────────────────────────────────────
+    loadNextLevel() {
+        this.currentLevel++;
+        this.levelComplete = false;
+        this.gameOver = false;
+        this.lives = 3;
+        this.scene.restart();
+    }
+
+    // ── Show Game Win ────────────────────────────────────────────────────────
+    showGameWin() {
+        const W = this.scale.width;
+        const H = this.scale.height;
+        this.gameOver = true;
+
+        const panel = this.add.rectangle(W / 2, H / 2, 360, 220, 0x000000, 0.85)
+            .setScrollFactor(0).setDepth(20);
+
+        this.add.text(W / 2, H / 2 - 70, 'YOU WIN!', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '28px',
+            color: '#ffdd00',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(21);
+
+        this.add.text(W / 2, H / 2 - 20, 'ALL LEVELS COMPLETE', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '11px',
+            color: '#00ff00',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(21);
+
+        this.add.text(W / 2, H / 2 + 15, 'FINAL SCORE: ' + this.score, {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '12px',
+            color: '#ffffff',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(21);
+
+        const restartBtn = this.add.text(W / 2, H / 2 + 70, '[ RESTART ]', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '12px',
+            color: '#ffffff',
+            backgroundColor: '#e8000a',
+            padding: { x: 12, y: 8 },
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setScrollFactor(0).setDepth(21);
+        restartBtn.on('pointerup', () => {
+            this.currentLevel = 1;
+            document.getElementById('game-container').style.display = 'none';
+            document.getElementById('mainMenu').style.display = 'flex';
+        });
     }
 
     spawnExplosion(x, y) {
@@ -407,7 +475,6 @@ class GameScene extends Phaser.Scene {
         this.livesTxt.setText('LIVES: ' + this.lives);
         this.invincible = true;
 
-        // Flash effect
         this.tweens.add({
             targets: this.player,
             alpha: 0,
@@ -431,7 +498,8 @@ class GameScene extends Phaser.Scene {
     showGameOver() {
         const W = this.scale.width;
         const H = this.scale.height;
-        const panel = this.add.rectangle(W / 2, H / 2, 360, 180, 0x000000, 0.8)
+
+        const panel = this.add.rectangle(W / 2, H / 2, 360, 180, 0x000000, 0.85)
             .setScrollFactor(0).setDepth(20);
 
         this.add.text(W / 2, H / 2 - 50, 'GAME OVER', {
@@ -453,7 +521,11 @@ class GameScene extends Phaser.Scene {
             backgroundColor: '#e8000a',
             padding: { x: 12, y: 8 },
         }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setScrollFactor(0).setDepth(21);
-        restart.on('pointerup', () => this.scene.restart());
+        restart.on('pointerup', () => {
+            this.currentLevel = 1;
+            document.getElementById('game-container').style.display = 'none';
+            document.getElementById('mainMenu').style.display = 'flex';
+        });
     }
 
     update(time) {
@@ -480,13 +552,13 @@ class GameScene extends Phaser.Scene {
             this.player.setVelocityY(-520);
         }
 
-        // Shoot
+        // Shoot - BULLET CENTERED ON CHARACTER
         if (Phaser.Input.Keyboard.JustDown(this.shootKey) && time > this.lastShot + 300) {
             this.lastShot = time;
-            const b = this.bullets.get(this.player.x, this.player.y - 10, 'bullet');
+            const b = this.bullets.get(this.player.x, this.player.y, 'bullet');  // CENTER Y (was y - 10)
             if (b) {
                 b.setActive(true).setVisible(true).setDisplaySize(24, 12);
-                b.body.reset(this.player.x, this.player.y - 10);
+                b.body.reset(this.player.x, this.player.y);  // CENTER (was y - 10)
                 b.setVelocityX(this.player.flipX ? -600 : 600);
                 b.body.setAllowGravity(false);
                 this.time.delayedCall(1200, () => { if (b.active) b.destroy(); });
@@ -502,24 +574,32 @@ class GameScene extends Phaser.Scene {
     }
 }
 
-
-// ── Entry point ───────────────────────────────────────────────────────────────
-function startGame() {
-    document.querySelector('.menu').style.display = 'none';
-    document.getElementById('game-container').style.display = 'block';
-
-    const config = {
-        type: Phaser.AUTO,
-        width: 700,
-        height: 500,
-        backgroundColor: '#1a1a2e',
-        parent: 'game-container',
-        physics: {
-            default: 'arcade',
-            arcade: { gravity: { y: 500 }, debug: false },
+// ── Phaser Configuration ──────────────────────────────────────────────────────
+const config = {
+    type: Phaser.AUTO,
+    width: 700,
+    height: 500,
+    backgroundColor: '#1a1a2e',
+    parent: 'game-container',
+    physics: {
+        default: 'arcade',
+        arcade: { 
+            gravity: { y: 500 }, 
+            debug: false 
         },
-        scene: [GameScene],
-    };
+    },
+    scene: [GameScene],
+};
 
-    new Phaser.Game(config);
+let game;
+
+function startGame() {
+    document.getElementById('mainMenu').style.display = 'none';
+    document.getElementById('game-container').style.display = 'block';
+    
+    if (!game) {
+        game = new Phaser.Game(config);
+    } else {
+        game.scene.start('GameScene');
+    }
 }

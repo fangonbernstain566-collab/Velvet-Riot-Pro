@@ -6,15 +6,19 @@
   <title>Velvet Riot</title>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
 </head>
 <body>
   <div id="gameContainer">
+    <!-- MAIN MENU -->
     <div id="mainMenu" class="menu">
       <h1>Velvet Riot</h1>
       <button onclick="showPlay()">PLAY</button>
       <button onclick="showShop()">SHOP</button>
       <button onclick="showSettings()">SETTINGS</button>
     </div>
+
+    <!-- SHOP SCREEN -->
     <div id="shopScreen" class="shop-screen" style="display: none;">
       <div class="shop-header">
         <div class="shop-title">Shop</div>
@@ -23,7 +27,41 @@
       <div class="shop-grid" id="shopGrid"></div>
       <button class="back-btn" onclick="backToMenu()">BACK</button>
     </div>
+
+    <!-- SETTINGS SCREEN -->
+    <div id="settingsScreen" class="settings-screen" style="display: none;">
+      <div class="shop-header">
+        <div class="shop-title">Settings</div>
+      </div>
+      <div class="settings-content">
+        <div class="setting-row">
+          <span class="setting-label">MUSIC</span>
+          <div class="toggle on" id="toggleMusic" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">SFX</span>
+          <div class="toggle on" id="toggleSfx" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">VOLUME</span>
+          <input type="range" class="vol-slider" min="0" max="100" value="80">
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">SCREENSHAKE</span>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">PARTICLES</span>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+      <button class="back-btn" onclick="backToMenu()">BACK</button>
+    </div>
+
+    <!-- GAME CANVAS -->
+    <div id="game-container" style="display: none;"></div>
     
+    <!-- CONFIRM MODAL -->
     <div id="confirmModal" class="modal" style="display: none;">
       <div class="modal-content">
         <div class="modal-text">ARE YOU SURE YOU WANT TO BUY THIS ITEM?</div>
@@ -36,5 +74,6 @@
   </div>
 
   <script src="script.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>
