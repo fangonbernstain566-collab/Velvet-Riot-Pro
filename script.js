@@ -1,3 +1,13 @@
+// In script.js - Ensure this is at the top level
+window.saveEarnings = function(amount) {
+  gameState.gold += amount;
+  localStorage.setItem('velvetRiotGold', gameState.gold);
+  
+  // Try to update UI if we are on the menu
+  const display = document.getElementById('goldDisplay');
+  if (display) display.textContent = gameState.gold;
+};
+
 // Game state
 const gameState = {
   gold: 0,
@@ -14,6 +24,23 @@ const shopItems = [
   { id: 'ring', name: 'Ring', price: 60, emoji: '💍' }
 ];
 
+
+// Add these functions to your script.js
+function saveEarnings(amount) {
+  gameState.gold += amount;
+  updateGoldDisplay();
+  // Optional: Save to localStorage so it stays after refreshing the page
+  localStorage.setItem('velvetRiotGold', gameState.gold);
+}
+
+// Load gold from memory when page starts
+window.onload = () => {
+  const savedGold = localStorage.getItem('velvetRiotGold');
+  if (savedGold) {
+    gameState.gold = parseInt(savedGold);
+    updateGoldDisplay();
+  }
+};
 function showPlay() {
   document.getElementById('mainMenu').style.display = 'none';
   document.getElementById('game-container').style.display = 'block';

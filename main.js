@@ -201,6 +201,9 @@ class GameScene extends Phaser.Scene {
                 }
             }
         }
+        
+// Add a tracker for the current run
+this.levelEarnings = 0;
 
         // ── World width ───────────────────────────────────────────────────────
         const WORLD_W = 2400;
@@ -273,11 +276,13 @@ this.player.setDepth(5);
             this.physics.add.collider(this.boss, this.groundGroup);
         }
 
-        this.physics.add.overlap(this.player, this.coins, (player, coin) => {
-            coin.disableBody(true, true);
-            this.score += 10;
-            this.scoreTxt.setText('SCORE: ' + this.score);
-        });
+       // Update your existing overlap to use levelEarnings instead of registry.score
+this.physics.add.overlap(this.player, this.coins, (player, coin) => {
+    coin.disableBody(true, true);
+    this.levelEarnings += 10; // Add to temporary stash
+    this.score += 10;         // Update HUD
+    this.scoreTxt.setText('SCORE: ' + this.score);
+});
 
         this.physics.add.overlap(this.bullets, this.enemies, (bullet, enemy) => {
             if (!bullet.active || !enemy.active) return;
@@ -545,34 +550,51 @@ if (this.boss) {
 
     // ── Show Level Complete Screen ────────────────────────────────────────────
     showLevelComplete() {
-        const W = this.scale.width;
-        const H = this.scale.height;
-        this.gameOver = true;
+    const W = this.scale.width;
+    const H = this.scale.height;
+    this.gameOver = true;
 
-        const panel = this.add.rectangle(W / 2, H / 2, 360, 200, 0x000000, 0.85)
-            .setScrollFactor(0).setDepth(20);
-
-        this.add.text(W / 2, H / 2 - 60, 'LEVEL COMPLETE!', {
-            fontFamily: '"Press Start 2P"',
-            fontSize: '20px',
-            color: '#00ff00',
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(21);
-
-        this.add.text(W / 2, H / 2 - 10, 'SCORE: ' + this.score, {
-            fontFamily: '"Press Start 2P"',
-            fontSize: '12px',
-            color: '#ffdd00',
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(21);
-
-        const nextBtn = this.add.text(W / 2, H / 2 + 50, '[ NEXT LEVEL ]', {
-            fontFamily: '"Press Start 2P"',
-            fontSize: '12px',
-            color: '#ffffff',
-            backgroundColor: '#00aa00',
-            padding: { x: 12, y: 8 },
-        }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setScrollFactor(0).setDepth(21);
-        nextBtn.on('pointerup', () => this.loadNextLevel());
+    // --- Save earnings to the main menu system ---
+    // We check if the function exists globally in the browser window
+    if (typeof window.saveEarnings === 'function') {
+        window.saveEarnings(this.levelEarnings);
+    } else {
+        console.warn("saveEarnings not found, check script.js");
     }
+
+    // --- UI Overlay ---
+    const panel = this.add.rectangle(W / 2, H / 2, 360, 200, 0x000000, 0.85)
+        .setScrollFactor(0).setDepth(20);
+
+    this.add.text(W / 2, H / 2 - 60, 'LEVEL COMPLETE!', {
+        fontFamily: '"Press Start 2P"',
+        fontSize: '20px',
+        color: '#00ff00',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(21);
+
+    // Display total score and earned coins
+    this.add.text(W / 2, H / 2 - 10, 'SCORE: ' + this.score, {
+        fontFamily: '"Press Start 2P"',
+        fontSize: '12px',
+        color: '#ffdd00',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(21);
+
+    this.add.text(W / 2, H / 2 + 15, 'EARNED: ' + this.levelEarnings + ' GOLD', {
+        fontFamily: '"Press Start 2P"',
+        fontSize: '10px',
+        color: '#aaaaaa',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(21);
+
+    const nextBtn = this.add.text(W / 2, H / 2 + 60, '[ NEXT LEVEL ]', {
+        fontFamily: '"Press Start 2P"',
+        fontSize: '12px',
+        color: '#ffffff',
+        backgroundColor: '#00aa00',
+        padding: { x: 12, y: 8 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setScrollFactor(0).setDepth(21);
+
+    nextBtn.on('pointerup', () => this.loadNextLevel());
+}
 
     // ── Load Next Level ──────────────────────────────────────────────────────
     loadNextLevel() {
@@ -585,6 +607,8 @@ if (this.boss) {
         const W = this.scale.width;
         const H = this.scale.height;
         this.gameOver = true;
+        
+        saveEarnings(this.levelEarnings);
 
         const panel = this.add.rectangle(W / 2, H / 2, 360, 220, 0x000000, 0.85)
             .setScrollFactor(0).setDepth(20);
