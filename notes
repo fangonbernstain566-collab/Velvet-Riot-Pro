@@ -1,6 +1,11 @@
  Added:
-
+sfx toogle workin only sfx gun sound
 dynamic bg night and day 
+coins
+boss
+gun sound
+fixed bugs restart and finish
+
 
 
 Note:
@@ -13,8 +18,8 @@ implement new character
 enemies design 
 enemies animation 
 add more levels
-fix restart and next level function
-coins implementation since its only in front end html not yet in the game
+
+
 
 
 

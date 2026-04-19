@@ -8,11 +8,19 @@ window.saveEarnings = function(amount) {
   if (display) display.textContent = gameState.gold;
 };
 
-// Game state
+// In script.js
 const gameState = {
   gold: 0,
-  inventory: {}
+  inventory: {},
+  sfxEnabled: true // Add this
 };
+
+// Update the toggle function
+function toggleSfx(element) {
+  element.classList.toggle('on');
+  gameState.sfxEnabled = element.classList.contains('on');
+  console.log("SFX Enabled:", gameState.sfxEnabled);
+}
 
 // Shop items database
 const shopItems = [

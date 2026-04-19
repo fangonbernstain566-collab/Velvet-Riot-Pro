@@ -753,15 +753,17 @@ if (this.boss) {
         if (jump && onGround) {
             this.player.setVelocityY(-520);
         }
+        
 
         // Shoot - BIGGER BULLETS (36x20) - FIX: Set proper depth in front of buildings
         if (Phaser.Input.Keyboard.JustDown(this.shootKey) && time > this.lastShot + 180) { // Firerate tweak to 100-500 higher the slower
             this.lastShot = time;
 
             //Play shoot sound
+            if (gameState && gameState.sfxEnabled) {
+                this.sound.play('laserShoot', { volume: 0.5 });
+            }
 
-            this.sound.play('laserShoot', { volume: 0.5 });
-            
             const bulletY = this.player.y + 12;
             const bx = this.player.x;
             const b = this.bullets.get(bx, bulletY, 'bullet');
