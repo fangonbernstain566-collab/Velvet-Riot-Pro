@@ -1,6 +1,6 @@
 // Game state
 const gameState = {
-  gold: 2000,
+  gold: 0,
   inventory: {}
 };
 

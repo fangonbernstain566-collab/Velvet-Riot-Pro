@@ -5,9 +5,10 @@ class GameScene extends Phaser.Scene {
 
     preload() {
         this.load.image('char', 'assets/char.png');
+        this.load.audio('laserShoot', 'assets/laserShoot.wav');
+
 
         // ── Generate all assets procedurally (no external files needed) ──
-        // Guard: skip if texture already exists (scene.restart() re-runs preload)
         const g = (key, fn) => {
             if (this.textures.exists(key)) return;
             const tex = this.textures.createCanvas(key, 64, 64);
@@ -15,7 +16,7 @@ class GameScene extends Phaser.Scene {
             tex.refresh();
         };
 
-        // Sky canvas - redrawn dynamically each frame
+        // Sky canvas
         if (!this.textures.exists('sky')) this.textures.createCanvas('sky', 800, 500).refresh();
 
         // Ground tile
@@ -41,33 +42,62 @@ class GameScene extends Phaser.Scene {
         // Robot enemy
         g('robot', ctx => {
             ctx.fillStyle = '#888';
-            ctx.fillRect(16, 8, 32, 28);   // body
+            ctx.fillRect(16, 8, 32, 28);
             ctx.fillStyle = '#aaa';
-            ctx.fillRect(20, 4, 24, 20);   // head
+            ctx.fillRect(20, 4, 24, 20);
             ctx.fillStyle = '#f00';
-            ctx.fillRect(24, 8, 6, 6);     // left eye
-            ctx.fillRect(34, 8, 6, 6);     // right eye
+            ctx.fillRect(24, 8, 6, 6);
+            ctx.fillRect(34, 8, 6, 6);
             ctx.fillStyle = '#555';
-            ctx.fillRect(10, 36, 12, 20);  // left leg
-            ctx.fillRect(42, 36, 12, 20);  // right leg
+            ctx.fillRect(10, 36, 12, 20);
+            ctx.fillRect(42, 36, 12, 20);
             ctx.fillStyle = '#777';
-            ctx.fillRect(4, 10, 10, 18);   // left arm
-            ctx.fillRect(50, 10, 10, 18);  // right arm
+            ctx.fillRect(4, 10, 10, 18);
+            ctx.fillRect(50, 10, 10, 18);
         });
 
         // Cat enemy
         g('cat', ctx => {
             ctx.fillStyle = '#cc6600';
-            ctx.fillRect(12, 20, 40, 28);  // body
-            ctx.fillRect(20, 8, 24, 24);   // head
+            ctx.fillRect(12, 20, 40, 28);
+            ctx.fillRect(20, 8, 24, 24);
             ctx.fillStyle = '#ff8800';
-            ctx.fillRect(20, 4, 8, 10);    // left ear
-            ctx.fillRect(36, 4, 8, 10);    // right ear
+            ctx.fillRect(20, 4, 8, 10);
+            ctx.fillRect(36, 4, 8, 10);
             ctx.fillStyle = '#00ff88';
-            ctx.fillRect(24, 14, 5, 5);    // left eye
-            ctx.fillRect(35, 14, 5, 5);    // right eye
+            ctx.fillRect(24, 14, 5, 5);
+            ctx.fillRect(35, 14, 5, 5);
             ctx.fillStyle = '#cc6600';
-            ctx.fillRect(52, 22, 6, 30);   // tail
+            ctx.fillRect(52, 22, 6, 30);
+        });
+
+        // BOSS - Big Robot Cat Hybrid
+        g('boss', ctx => {
+            // Large body
+            ctx.fillStyle = '#cc3300';
+            ctx.fillRect(8, 12, 48, 40);
+            // Large head
+            ctx.fillStyle = '#ff4400';
+            ctx.fillRect(12, 0, 40, 24);
+            // Glowing red eyes
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(18, 6, 8, 8);
+            ctx.fillRect(38, 6, 8, 8);
+            ctx.fillStyle = '#ffff00';
+            ctx.fillRect(20, 8, 4, 4);
+            ctx.fillRect(40, 8, 4, 4);
+            // Ears
+            ctx.fillStyle = '#ff6600';
+            ctx.fillRect(14, -8, 10, 10);
+            ctx.fillRect(40, -8, 10, 10);
+            // Large legs
+            ctx.fillStyle = '#cc2200';
+            ctx.fillRect(10, 52, 14, 12);
+            ctx.fillRect(40, 52, 14, 12);
+            // Arms
+            ctx.fillStyle = '#ff5500';
+            ctx.fillRect(0, 18, 10, 20);
+            ctx.fillRect(54, 18, 10, 20);
         });
 
         // Bullet
@@ -76,6 +106,14 @@ class GameScene extends Phaser.Scene {
             ctx.fillRect(20, 26, 24, 12);
             ctx.fillStyle = '#ff8800';
             ctx.fillRect(28, 28, 8, 8);
+        });
+
+        // Enemy Bullet (different color)
+        g('enemyBullet', ctx => {
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(16, 24, 32, 16);
+            ctx.fillStyle = '#ff6600';
+            ctx.fillRect(24, 28, 16, 8);
         });
 
         // Coin
@@ -113,7 +151,7 @@ class GameScene extends Phaser.Scene {
         this.lives = 3;
         this.gameOver = false;
         this.levelComplete = false;
-        this.overlayShown = false; // guard: only ONE overlay can ever show
+        this.overlayShown = false;
 
         // Use registry to persist currentLevel across scene restarts
         if (!this.registry.has('currentLevel')) {
@@ -122,10 +160,10 @@ class GameScene extends Phaser.Scene {
         this.currentLevel = this.registry.get('currentLevel');
 
         // ── Dynamic Sky ──────────────────────────────────────────────────────
-        this.skyTime = 0.25; // start at sunrise
+        this.skyTime = 0.25;
         this.skyImg = this.add.image(W / 2, H / 2, 'sky').setScrollFactor(0).setDepth(0);
 
-        // ── Stars (hidden at day, shown at night) ────────────────────────────
+        // ── Stars ────────────────────────────────────────────────────────────
         this.starObjs = [];
         for (let i = 0; i < 90; i++) {
             const star = this.add.circle(
@@ -141,8 +179,8 @@ class GameScene extends Phaser.Scene {
         this.sunDisc = this.add.circle(W / 2, H * 0.3, 26, 0xfffde0)
             .setScrollFactor(0).setDepth(1);
 
-        // ── Background buildings (parallax layer, windows stored for night) ──
-        this.windowObjs = []; // all window rects stored here
+        // ── Background buildings ──────────────────────────────────────────────
+        this.windowObjs = [];
         this.buildingLayer = this.add.group();
         for (let i = 0; i < 14; i++) {
             const bh = Phaser.Math.Between(80, 200);
@@ -186,31 +224,38 @@ class GameScene extends Phaser.Scene {
                 .setDisplaySize(20, 20).refreshBody().setDepth(5);
         }
 
-        // ── Player ────────────────────────────────────────────────────────────
-        // Create fallback texture if char failed to load
-        if (!this.textures.exists('char') && !this.textures.exists('char_fallback')) {
-            const fb = this.textures.createCanvas('char_fallback', 48, 64);
-            const fc = fb.getContext();
-            fc.fillStyle = '#44aaff';
-            fc.fillRect(8, 0, 32, 40);
-            fc.fillStyle = '#2288dd';
-            fc.fillRect(10, 40, 12, 24);
-            fc.fillRect(26, 40, 12, 24);
-            fc.fillStyle = '#ffffff';
-            fc.fillRect(14, 8, 8, 8);
-            fc.fillRect(26, 8, 8, 8);
-            fb.refresh();
-        }
-        const charKey = this.textures.exists('char') ? 'char' : 'char_fallback';
-        this.player = this.physics.add.sprite(100, this.GROUND_Y - 40, charKey);
-        this.player.setScale(1.5);  // SMALLER SIZE (was 2)
-        this.player.setBounce(0.1);
-        this.player.setCollideWorldBounds(true);
-        this.player.body.setGravityY(200);
-        this.player.setDepth(5);
+        // ── Player - FIX: Spawn properly on ground ───────────────────────────
+        // ── Player - Spawn in the air ───────────────────────────────────────────
+if (!this.textures.exists('char') && !this.textures.exists('char_fallback')) {
+    const fb = this.textures.createCanvas('char_fallback', 48, 64);
+    const fc = fb.getContext();
+    fc.fillStyle = '#44aaff';
+    fc.fillRect(8, 0, 32, 40);
+    fc.fillStyle = '#2288dd';
+    fc.fillRect(10, 40, 12, 24);
+    fc.fillRect(26, 40, 12, 24);
+    fc.fillStyle = '#ffffff';
+    fc.fillRect(14, 8, 8, 8);
+    fc.fillRect(26, 8, 8, 8);
+    fb.refresh();
+}
+const charKey = this.textures.exists('char') ? 'char' : 'char_fallback';
+
+// CHANGED: Spawn at GROUND_Y - 200 so the player falls into the scene
+this.player = this.physics.add.sprite(100, this.GROUND_Y - 200, charKey);
+this.player.setScale(1.5);
+this.player.setBounce(0.1);
+this.player.setCollideWorldBounds(true);
+this.player.body.setGravityY(200);
+this.player.setDepth(5);
 
         // ── Enemies - Different for each level ────────────────────────────────
         this.enemies = this.physics.add.group();
+        this.boss = null;  // Boss placeholder
+        this.bossBullets = this.physics.add.group({ maxSize: 10 });
+        this.bossHP = 0;
+        this.bossMaxHP = 0;
+        this.bossHPText = null;
         this.createLevelEnemies();
 
         // ── Bullets ───────────────────────────────────────────────────────────
@@ -224,6 +269,9 @@ class GameScene extends Phaser.Scene {
         // ── Colliders ────────────────────────────────────────────────────────
         this.physics.add.collider(this.player, this.groundGroup);
         this.physics.add.collider(this.enemies, this.groundGroup);
+        if (this.boss) {
+            this.physics.add.collider(this.boss, this.groundGroup);
+        }
 
         this.physics.add.overlap(this.player, this.coins, (player, coin) => {
             coin.disableBody(true, true);
@@ -241,6 +289,46 @@ class GameScene extends Phaser.Scene {
             this.checkLevelComplete();
         });
 
+        // BOSS: Bullet damage - FIX: Only damage, don't destroy body until HP is 0
+        // ── BOSS: Improved Bullet Damage Logic ──────────────────────────────
+if (this.boss) {
+    this.physics.add.overlap(this.bullets, this.boss, (boss, bullet) => {
+        // 1. Safety check: ensure both exist and the bullet hasn't already hit something
+        if (!bullet.active || !boss.active || bullet.hasHitBoss) return;
+
+        // 2. Mark the bullet immediately so it cannot trigger again
+        bullet.hasHitBoss = true;
+        bullet.disableBody(true, true);
+
+        // 3. Subtract HP
+        this.bossHP = Math.max(0, this.bossHP - 1);
+        this.updateBossHPDisplay();
+        
+        // 4. Visual feedback
+        this.spawnExplosion(bullet.x, bullet.y);
+        
+        // 5. Flash effect
+        this.tweens.add({
+            targets: boss,
+            alpha: 0.5,
+            duration: 100,
+            yoyo: true,
+        });
+
+        // 6. Check death
+        if (this.bossHP <= 0) {
+            boss.disableBody(true, true); // This physically removes the boss
+            this.boss.setActive(false);
+            this.boss.setVisible(false);
+            
+            this.score += 500;
+            this.scoreTxt.setText('SCORE: ' + this.score);
+            this.spawnExplosion(boss.x, boss.y);
+            this.checkLevelComplete();
+        }
+    });
+}
+
         this.physics.add.overlap(this.player, this.enemies, (player, enemy) => {
             if (!enemy.active) return;
             if (this.player.body.velocity.y > 0 && player.y < enemy.y - 20) {
@@ -255,11 +343,25 @@ class GameScene extends Phaser.Scene {
             }
         });
 
+        // BOSS: Touch damage
+        if (this.boss) {
+            this.physics.add.overlap(this.player, this.boss, () => {
+                this.hitPlayer();
+            });
+        }
+
+        // BOSS: Enemy bullet damage
+        this.physics.add.overlap(this.player, this.bossBullets, (player, bullet) => {
+            if (!bullet.active) return;
+            bullet.disableBody(true, true);
+            this.hitPlayer();
+        });
+
         // ── Camera ────────────────────────────────────────────────────────────
         this.cameras.main.setBounds(0, 0, WORLD_W, H);
         this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
-        // ── Controls ─────────────────────────────────────────────────────────
+        // ── Controls ──────────────────────────────────────────────────────────
         this.cursors = this.input.keyboard.createCursorKeys();
         this.wasd = this.input.keyboard.addKeys({
             left:  Phaser.Input.Keyboard.KeyCodes.A,
@@ -311,6 +413,7 @@ class GameScene extends Phaser.Scene {
         });
 
         this.invincible = false;
+        this.lastBossShot = 0;
     }
 
     // ── Level Enemy Creation ──────────────────────────────────────────────────
@@ -341,20 +444,9 @@ class GameScene extends Phaser.Scene {
                 { x: 2100, type: 'cat'   },
             ];
         } else if (this.currentLevel === 3) {
-            enemyDefs = [
-                { x: 250,  type: 'robot' },
-                { x: 450,  type: 'cat'   },
-                { x: 650,  type: 'robot' },
-                { x: 850,  type: 'cat'   },
-                { x: 1050, type: 'robot' },
-                { x: 1250, type: 'cat'   },
-                { x: 1450, type: 'robot' },
-                { x: 1650, type: 'cat'   },
-                { x: 1850, type: 'robot' },
-                { x: 2050, type: 'cat'   },
-                { x: 2200, type: 'robot' },
-                { x: 2350, type: 'cat'   },
-            ];
+            // BOSS LEVEL - Only one big boss
+            this.createBoss();
+            return;
         }
 
         enemyDefs.forEach(({ x, type }) => {
@@ -369,9 +461,78 @@ class GameScene extends Phaser.Scene {
         });
     }
 
+    // ── CREATE BOSS ───────────────────────────────────────────────────────────
+    createBoss() {
+        const W = this.scale.width;
+        this.boss = this.physics.add.sprite(W + 300, this.GROUND_Y - 80, 'boss');
+        this.boss.setDisplaySize(120, 140).refreshBody();
+        this.boss.setCollideWorldBounds(true);
+        this.boss.setBounce(0.3);
+        this.boss.body.setGravityY(200);
+        this.boss.setVelocityX(-80);
+        this.boss.setDepth(5);
+        
+        // Boss HP - FIX: Increased HP so boss doesn't die in one hit
+        this.bossMaxHP = 20;
+        this.bossHP = this.bossMaxHP;
+        
+        // Boss HP display - Make it more visible
+        this.bossHPText = this.add.text(W / 2, 45, 'BOSS HP: 20/20', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '13px',
+            color: '#ff0000',
+            backgroundColor: '#00000088',
+            padding: { x: 8, y: 4 },
+        }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(10);
+    }
+
+    updateBossHPDisplay() {
+        if (this.bossHPText) {
+            const hp = Math.max(0, this.bossHP);
+            this.bossHPText.setText('BOSS HP: ' + hp + '/' + this.bossMaxHP);
+        }
+    }
+
+    // ── BOSS SHOOTING ─────────────────────────────────────────────────────────
+    bossFire(time) {
+        if (!this.boss || !this.boss.active) return;
+        
+        if (time > this.lastBossShot + 800) {
+            this.lastBossShot = time;
+            
+            // Fire red bullet at player
+            const bulletY = this.boss.y;
+            const bulletX = this.boss.x;
+            const b = this.bossBullets.get(bulletX, bulletY, 'enemyBullet');
+            
+            if (b) {
+                b.enableBody(true, bulletX, bulletY, true, true);
+                b.setDisplaySize(32, 16);
+                b.setDepth(6);  // FIX: Bullets in front of buildings (depth 6, buildings are 2-3)
+                
+                // Calculate direction to player
+                const dx = this.player.x - bulletX;
+                const dy = this.player.y - bulletY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist > 0) {
+                    const speed = 300;
+                    b.setVelocityX((dx / dist) * speed);
+                    b.setVelocityY((dy / dist) * speed);
+                }
+                
+                b.body.setAllowGravity(false);
+                this.time.delayedCall(2000, () => { if (b && b.active) b.disableBody(true, true); });
+            }
+        }
+    }
+
     // ── Check if level is complete ────────────────────────────────────────────
     checkLevelComplete() {
-        if (this.enemies.countActive() === 0 && !this.levelComplete && !this.overlayShown) {
+        const noEnemies = this.enemies.countActive() === 0;
+        const noBoss = !this.boss || !this.boss.active;
+        
+        if (noEnemies && noBoss && !this.levelComplete && !this.overlayShown) {
             this.levelComplete = true;
             this.overlayShown = true;
             if (this.currentLevel < 3) {
@@ -434,10 +595,10 @@ class GameScene extends Phaser.Scene {
             color: '#ffdd00',
         }).setOrigin(0.5).setScrollFactor(0).setDepth(21);
 
-        this.add.text(W / 2, H / 2 - 20, 'ALL LEVELS COMPLETE', {
+        this.add.text(W / 2, H / 2 - 20, 'BOSS DEFEATED!', {
             fontFamily: '"Press Start 2P"',
-            fontSize: '11px',
-            color: '#00ff00',
+            fontSize: '14px',
+            color: '#ff4444',
         }).setOrigin(0.5).setScrollFactor(0).setDepth(21);
 
         this.add.text(W / 2, H / 2 + 15, 'FINAL SCORE: ' + this.score, {
@@ -569,42 +730,63 @@ class GameScene extends Phaser.Scene {
             this.player.setVelocityY(-520);
         }
 
-        // Shoot - BULLET SLIGHTLY BELOW CENTER
-        if (Phaser.Input.Keyboard.JustDown(this.shootKey) && time > this.lastShot + 300) {
+        // Shoot - BIGGER BULLETS (36x20) - FIX: Set proper depth in front of buildings
+        if (Phaser.Input.Keyboard.JustDown(this.shootKey) && time > this.lastShot + 180) { // Firerate tweak to 100-500 higher the slower
             this.lastShot = time;
+
+            //Play shoot sound
+
+            this.sound.play('laserShoot', { volume: 0.5 });
+            
             const bulletY = this.player.y + 12;
             const bx = this.player.x;
             const b = this.bullets.get(bx, bulletY, 'bullet');
             if (b) {
                 b.enableBody(true, bx, bulletY, true, true);
-                b.setDisplaySize(24, 12);
+                b.setDisplaySize(36, 20);  // BIGGER (was 24x12)
                 b.setVelocityX(this.player.flipX ? -600 : 600);
                 b.setVelocityY(0);
                 b.body.setAllowGravity(false);
+                b.setDepth(6);  // FIX: Depth 6 so bullets render in front of buildings (depth 2-3)
+                b.hasHitBoss = false;  // Reset flag for each new bullet
                 this.time.delayedCall(1200, () => { if (b.active) b.disableBody(true, true); });
             }
         }
 
-        // Kill player if falls into pit
-        if (this.player.y > this.scale.height + 50) {
-            this.hitPlayer();
-            this.player.setPosition(100, this.GROUND_Y - 40);
-            this.player.setVelocity(0, 0);
+        // Boss AI: Chase and shoot
+        if (this.boss && this.boss.active) {
+            // Boss moves toward player
+            if (this.boss.x > this.player.x) {
+                this.boss.setVelocityX(-100);
+                this.boss.setFlipX(true);
+            } else {
+                this.boss.setVelocityX(100);
+                this.boss.setFlipX(false);
+            }
+            
+            // Boss shoots at player
+            this.bossFire(time);
         }
+
+        // Kill player if falls into pit
+        // Kill player if falls into pit
+if (this.player.y > this.scale.height + 50) {
+    this.hitPlayer();
+    // CHANGED: Reset player to 200 pixels above ground for a falling respawn
+    this.player.setPosition(100, this.GROUND_Y - 200);
+    this.player.setVelocity(0, 0);
+}
 
         // ── Day/Night cycle ──────────────────────────────────────────────────
         this.skyTime = (this.skyTime + 0.00008) % 1.0;
         const t = this.skyTime;
 
-        // Helper: lerp between two hex colors
         const lerpColor = (a, b, f) => {
             const ar = (a>>16)&0xff, ag = (a>>8)&0xff, ab = a&0xff;
             const br = (b>>16)&0xff, bg = (b>>8)&0xff, bb = b&0xff;
             return (Math.round(ar+(br-ar)*f)<<16)|(Math.round(ag+(bg-ag)*f)<<8)|Math.round(ab+(bb-ab)*f);
         };
 
-        // Sky color keyframes: night->sunrise->day->sunset->night
-        // t: 0=night, 0.2=sunrise, 0.45=day, 0.7=sunset, 0.85=night
         const skyKeys = [
             { t: 0.00, top: 0x0d0d2b, bot: 0x1a1a4e },
             { t: 0.20, top: 0xff6b35, bot: 0xffc87a },
@@ -622,7 +804,6 @@ class GameScene extends Phaser.Scene {
         const topCol = lerpColor(k0.top, k1.top, f);
         const botCol = lerpColor(k0.bot, k1.bot, f);
 
-        // Redraw sky canvas with gradient
         const skyTex = this.textures.get('sky');
         const skyCtx = skyTex.getSourceImage();
         if (skyCtx && skyCtx.getContext) {
@@ -636,24 +817,19 @@ class GameScene extends Phaser.Scene {
             skyTex.refresh();
         }
 
-        // Sun/Moon position: arc across sky
         const W2 = this.scale.width;
         const H2 = this.scale.height;
-        const angle = t * Math.PI * 2;
         const sunX = W2 * 0.1 + W2 * 0.8 * ((t < 0.5 ? t * 2 : (t - 0.5) * 2));
         const sunY = H2 * 0.7 - Math.sin(t * Math.PI * 2) * H2 * 0.55;
         this.sunDisc.setPosition(sunX, sunY);
-        // Day = sun (yellow), Night = moon (pale blue-white)
         const isNight = t < 0.15 || t > 0.80;
         const isDawn  = (t >= 0.15 && t < 0.35) || (t >= 0.65 && t <= 0.80);
         this.sunDisc.setFillStyle(isNight ? 0xdde8ff : isDawn ? 0xffaa44 : 0xfff176);
         this.sunDisc.setRadius(isNight ? 20 : 26);
 
-        // Stars: fade in at night, fade out at day
         const starAlpha = isNight ? 0.9 : (isDawn ? 0.2 : 0);
         this.starObjs.forEach(s => s.setAlpha(starAlpha * (0.4 + Math.random() * 0.6)));
 
-        // Building windows: lit yellow at night, dark at day
         const winCol = isNight ? 0xffdd88 : 0x1a1a3e;
         const winAlpha = isNight ? 1 : (isDawn ? 0.4 : 0);
         this.windowObjs.forEach(w => {
