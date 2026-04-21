@@ -5,6 +5,12 @@ class GameScene extends Phaser.Scene {
 
     preload() {
         this.load.image('char', 'assets/char.png');
+        this.load.image('char1', 'assets/char1.png');
+this.load.image('char2', 'assets/char2.png');
+this.load.image('char3', 'assets/char3.png');
+this.load.image('char4', 'assets/char4.png');
+this.load.image('char5', 'assets/char5.png');
+this.load.image('char6', 'assets/char6.png');
         this.load.audio('laserShoot', 'assets/laserShoot.wav');
 
 
@@ -144,6 +150,29 @@ class GameScene extends Phaser.Scene {
     }
 
     create() {
+        // WALK animation
+this.anims.create({
+    key: 'walk',
+    frames: [
+        { key: 'char1' },
+        { key: 'char2' },
+        { key: 'char3' },
+        { key: 'char4' },
+        { key: 'char5' },
+        { key: 'char6' }
+    ],
+    frameRate: 12,
+    repeat: -1
+});
+
+// IDLE animation
+this.anims.create({
+    key: 'idle',
+    frames: [{ key: 'char' }],
+    frameRate: 1,
+    repeat: -1
+});
+
         const W = this.scale.width;
         const H = this.scale.height;
         this.GROUND_Y = H - 60;
@@ -731,6 +760,8 @@ if (this.boss) {
     }
 
     update(time) {
+
+      
         if (this.gameOver) return;
 
         const left  = this.cursors.left.isDown  || this.wasd.left.isDown;
@@ -753,10 +784,34 @@ if (this.boss) {
         if (jump && onGround) {
             this.player.setVelocityY(-520);
         }
+          if (left) {
+    this.player.setVelocityX(-220);
+    this.player.setFlipX(true);
+
+    if (onGround) {
+        this.player.anims.play('walk', true);
+    }
+}
+else if (right) {
+    this.player.setVelocityX(220);
+    this.player.setFlipX(false);
+
+    if (onGround) {
+        this.player.anims.play('walk', true);
+    }
+}
+else {
+    this.player.setVelocityX(0);
+
+    if (onGround) {
+        this.player.anims.play('idle', true);
+    }
+}
+
         
 
         // Shoot - BIGGER BULLETS (36x20) - FIX: Set proper depth in front of buildings
-        if (Phaser.Input.Keyboard.JustDown(this.shootKey) && time > this.lastShot + 180) { // Firerate tweak to 100-500 higher the slower
+        if (Phaser.Input.Keyboard.JustDown(this.shootKey) && time > this.lastShot + 200) { // Firerate tweak to 100-500 higher the slower
             this.lastShot = time;
 
             //Play shoot sound
