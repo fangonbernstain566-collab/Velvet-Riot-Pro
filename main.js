@@ -64,7 +64,7 @@ class GameScene extends Phaser.Scene {
             ctx.fillRect(4, 10, 10, 18);
             ctx.fillRect(50, 10, 10, 18);
         });
-
+        
         // Cat enemy
         g('cat', ctx => {
             ctx.fillStyle = '#cc6600';
@@ -79,6 +79,30 @@ class GameScene extends Phaser.Scene {
             ctx.fillStyle = '#cc6600';
             ctx.fillRect(52, 22, 6, 30);
         });
+
+        g('flyingCat', ctx => {
+    // body (hover bot)
+    ctx.fillStyle = '#aa55ff';
+    ctx.fillRect(14, 20, 36, 24);
+
+    // head
+    ctx.fillStyle = '#cc77ff';
+    ctx.fillRect(18, 6, 28, 18);
+
+    // eyes
+    ctx.fillStyle = '#00ffff';
+    ctx.fillRect(22, 12, 6, 6);
+    ctx.fillRect(36, 12, 6, 6);
+
+    // wings / thrusters
+    ctx.fillStyle = '#888';
+    ctx.fillRect(0, 18, 12, 10);
+    ctx.fillRect(52, 18, 12, 10);
+
+    // glow core
+    ctx.fillStyle = '#ff00ff';
+    ctx.fillRect(28, 26, 8, 8);
+});
 
         // BOSS - Big Robot Cat Hybrid
         g('boss', ctx => {
@@ -155,11 +179,12 @@ class GameScene extends Phaser.Scene {
     create() {
 
         // 🎵 Background Music
-if (gameState && gameState.musicEnabled) {
+if (!this.bgmusic) {
     this.bgmusic = this.sound.add('bgmusic', {
         volume: gameState.volume,
         loop: true
     });
+
     this.bgmusic.play();
 }
 
@@ -481,6 +506,7 @@ if (this.boss) {
                 { x: 600,  type: 'cat'   },
                 { x: 800,  type: 'robot' },
                 { x: 1000, type: 'cat'   },
+                { x: 700, type: 'flyingCat' },
                 { x: 1200, type: 'robot' },
                 { x: 1500, type: 'cat'   },
                 { x: 1800, type: 'robot' },
@@ -490,10 +516,13 @@ if (this.boss) {
                 { x: 300,  type: 'robot' },
                 { x: 500,  type: 'cat'   },
                 { x: 700,  type: 'robot' },
+                { x: 700, type: 'flyingCat' },
                 { x: 900,  type: 'cat'   },
                 { x: 1100, type: 'robot' },
+                { x: 700, type: 'flyingCat' },
                 { x: 1300, type: 'cat'   },
                 { x: 1500, type: 'robot' },
+                { x: 700, type: 'flyingCat' },
                 { x: 1700, type: 'cat'   },
                 { x: 1900, type: 'robot' },
                 { x: 2100, type: 'cat'   },
@@ -505,16 +534,42 @@ if (this.boss) {
         }
 
         enemyDefs.forEach(({ x, type }) => {
-            const e = this.enemies.create(x, this.GROUND_Y - 32, type);
-            e.setDisplaySize(48, 56).refreshBody();
-            e.setCollideWorldBounds(true);
-            e.setBounce(1);
-            e.body.setGravityY(200);
-            e.setVelocityX(Phaser.Math.Between(60, 100) * (Math.random() > 0.5 ? 1 : -1));
-            e.enemyType = type;
-            e.setDepth(5);
-        });
+
+    let y = this.GROUND_Y - 32;
+
+    // 🛩️ flying enemy spawn higher
+    if (type === 'flyingCat') {
+        y = this.GROUND_Y - 200;
     }
+
+    const e = this.enemies.create(x, y, type);
+
+    e.setDisplaySize(48, 56).refreshBody();
+    e.setCollideWorldBounds(true);
+    e.setBounce(1);
+
+    e.body.setGravityY(200);
+
+    e.enemyType = type;
+
+    // 🛩️ STEP 4 GOES HERE ↓↓↓
+    if (type === 'flyingCat') {
+        e.setGravityY(-this.physics.world.gravity.y); // cancel gravity
+        e.body.allowGravity = false;
+
+        e.setVelocityX(Phaser.Math.Between(60, 120) * (Math.random() > 0.5 ? 1 : -1));
+
+        e.startY = y; // save hover position
+    }
+
+    // only ground enemies use gravity
+    if (type !== 'flyingCat') {
+        e.body.setGravityY(200);
+    }
+
+    e.setDepth(5);
+});
+}
 
     // ── CREATE BOSS ───────────────────────────────────────────────────────────
     createBoss() {
@@ -647,10 +702,16 @@ if (this.boss) {
 }
 
     // ── Load Next Level ──────────────────────────────────────────────────────
-    loadNextLevel() {
-        this.registry.set('currentLevel', this.currentLevel + 1);
-        this.scene.restart();
+   loadNextLevel() {
+    if (this.bgmusic) {
+        this.bgmusic.stop(); // 🔥 STOP OLD MUSIC
+        this.bgmusic.destroy(); // cleanup
+        this.bgmusic = null;
     }
+
+    this.registry.set('currentLevel', this.currentLevel + 1);
+    this.scene.restart();
+}
 
     // ── Show Game Win ────────────────────────────────────────────────────────
     showGameWin() {
@@ -845,7 +906,7 @@ else {
         
 
         // Shoot - BIGGER BULLETS (36x20) - FIX: Set proper depth in front of buildings
-        if (Phaser.Input.Keyboard.JustDown(this.shootKey) && time > this.lastShot + 200) { // Firerate tweak to 100-500 higher the slower
+        if (Phaser.Input.Keyboard.JustDown(this.shootKey) && time > this.lastShot + 230) { // Firerate tweak to 100-500 higher the slower
             this.lastShot = time;
 
             //Play shoot sound
