@@ -12,7 +12,9 @@ window.saveEarnings = function(amount) {
 const gameState = {
   gold: 0,
   inventory: {},
-  sfxEnabled: true // Add this
+  sfxEnabled: true ,// Add this
+  musicEnabled: true ,
+  volume: 0.8 //
 };
 
 // Update the toggle function
@@ -33,6 +35,7 @@ const shopItems = [
 ];
 
 
+
 // Add these functions to your script.js
 function saveEarnings(amount) {
   gameState.gold += amount;
@@ -43,10 +46,37 @@ function saveEarnings(amount) {
 
 // Load gold from memory when page starts
 window.onload = () => {
+  // --- LOAD GOLD ---
   const savedGold = localStorage.getItem('velvetRiotGold');
   if (savedGold) {
     gameState.gold = parseInt(savedGold);
     updateGoldDisplay();
+  }
+
+  // --- LOAD VOLUME ---
+  const savedVolume = localStorage.getItem('velvetRiotVolume');
+  if (savedVolume !== null) {
+    gameState.volume = parseFloat(savedVolume);
+  }
+
+  // --- GET SLIDER AFTER DOM LOAD ---
+  const slider = document.getElementById('volumeSlider');
+
+  if (slider) {
+    // Sync slider UI
+    slider.value = gameState.volume * 100;
+
+    // 🎵 LISTEN TO CHANGES
+    slider.addEventListener('input', function () {
+      gameState.volume = Math.pow(this.value / 100, 0.6);
+
+      localStorage.setItem('velvetRiotVolume', gameState.volume);
+
+      // 🔥 APPLY TO GAME LIVE
+      if (window.game && game.scene.scenes[0]?.bgmusic) {
+        game.scene.scenes[0].bgmusic.setVolume(gameState.volume);
+      }
+    });
   }
 };
 function showPlay() {
@@ -121,4 +151,9 @@ function cancelBuy() {
 
 function updateGoldDisplay() {
   document.getElementById('goldDisplay').textContent = gameState.gold;
+}
+function toggleMusic(element) {
+  element.classList.toggle('on');
+  gameState.musicEnabled = element.classList.contains('on');
+  console.log("Music Enabled:", gameState.musicEnabled);
 }

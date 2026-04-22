@@ -4,14 +4,17 @@ class GameScene extends Phaser.Scene {
     }
 
     preload() {
+
         this.load.image('char', 'assets/char.png');
         this.load.image('char1', 'assets/char1.png');
-this.load.image('char2', 'assets/char2.png');
-this.load.image('char3', 'assets/char3.png');
-this.load.image('char4', 'assets/char4.png');
-this.load.image('char5', 'assets/char5.png');
-this.load.image('char6', 'assets/char6.png');
+        this.load.image('char2', 'assets/char2.png');
+        this.load.image('char3', 'assets/char3.png');
+        this.load.image('char4', 'assets/char4.png');
+        this.load.image('char5', 'assets/char5.png');
+        this.load.image('char6', 'assets/char6.png');
+
         this.load.audio('laserShoot', 'assets/laserShoot.wav');
+        this.load.audio('bgmusic', 'assets/bgmusic.mp3');
 
 
         // ── Generate all assets procedurally (no external files needed) ──
@@ -150,6 +153,17 @@ this.load.image('char6', 'assets/char6.png');
     }
 
     create() {
+
+        // 🎵 Background Music
+if (gameState && gameState.musicEnabled) {
+    this.bgmusic = this.sound.add('bgmusic', {
+        volume: gameState.volume,
+        loop: true
+    });
+    this.bgmusic.play();
+}
+
+
         // WALK animation
 this.anims.create({
     key: 'walk',
@@ -437,10 +451,17 @@ if (this.boss) {
             padding: { x: 6, y: 4 },
         }).setOrigin(0, 1).setInteractive({ useHandCursor: true }).setScrollFactor(0).setDepth(10);
         backBtn.on('pointerup', () => {
-            this.registry.set('currentLevel', 1);
-            this.scene.stop();
-            document.getElementById('game-container').style.display = 'none';
-            document.getElementById('mainMenu').style.display = 'flex';
+
+    // ✅ STOP MUSIC FIRST
+    if (this.bgmusic) {
+        this.bgmusic.stop();
+    }
+
+    this.registry.set('currentLevel', 1);
+    this.scene.stop();
+    document.getElementById('game-container').style.display = 'none';
+    document.getElementById('mainMenu').style.display = 'flex';
+
             setTimeout(() => {
                 if (game) { game.destroy(true); game = null; }
             }, 100);
@@ -763,6 +784,19 @@ if (this.boss) {
 
       
         if (this.gameOver) return;
+        // 🎵 LIVE MUSIC TOGGLE (STEP 6)
+if (this.bgmusic) {
+
+    // If user turned OFF music → stop it
+    if (!gameState.musicEnabled && this.bgmusic.isPlaying) {
+        this.bgmusic.stop();
+    }
+
+    // If user turned ON music → play it again
+    else if (gameState.musicEnabled && !this.bgmusic.isPlaying) {
+        this.bgmusic.play();
+    }
+}
 
         const left  = this.cursors.left.isDown  || this.wasd.left.isDown;
         const right = this.cursors.right.isDown || this.wasd.right.isDown;
