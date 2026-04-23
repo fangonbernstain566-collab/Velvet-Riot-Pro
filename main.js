@@ -1,3 +1,56 @@
+class LoadingScene extends Phaser.Scene {    ///Loading scence 
+    constructor() {
+        super('LoadingScene');
+    }
+
+    preload() {
+        const W = this.scale.width;
+        const H = this.scale.height;
+
+        // background
+        this.add.rectangle(W/2, H/2, W, H, 0x000000);
+
+        // text
+        this.text = this.add.text(W/2, H/2 - 50, 'LOADING...', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '16px',
+            color: '#ffffff'
+        }).setOrigin(0.5);
+
+        // bar background
+        this.add.rectangle(W/2, H/2, 300, 20, 0x333333);
+
+        // progress bar
+        this.bar = this.add.rectangle(W/2 - 150, H/2, 0, 20, 0x00ff00).setOrigin(0, 0.5);
+
+        // update progress
+        this.load.on('progress', (value) => {
+            this.bar.width = 300 * value;
+            this.text.setText('LOADING ' + Math.floor(value * 100) + '%');
+        });
+
+        // LOAD YOUR ASSETS HERE
+        this.load.image('char', 'assets/char.png');
+        this.load.image('char1', 'assets/char1.png');
+        this.load.image('char2', 'assets/char2.png');
+        this.load.image('char3', 'assets/char3.png');
+        this.load.image('char4', 'assets/char4.png');
+        this.load.image('char5', 'assets/char5.png');
+        this.load.image('char6', 'assets/char6.png');
+
+        this.load.audio('laserShoot', 'assets/laserShoot.wav');
+        this.load.audio('bgmusic', 'assets/bgmusic.mp3');
+    }
+
+    create() {
+        this.time.delayedCall(300, () => {
+            this.scene.start('GameScene');
+        });
+    }
+}
+
+
+
 class GameScene extends Phaser.Scene {
     constructor() {
         super({ key: 'GameScene' });
@@ -15,7 +68,7 @@ class GameScene extends Phaser.Scene {
 
         this.load.audio('laserShoot', 'assets/laserShoot.wav');
         this.load.audio('bgmusic', 'assets/bgmusic.mp3');
-
+        this.load.audio('menuMusic', 'assets/menu music.mp3');
 
         // ── Generate all assets procedurally (no external files needed) ──
         const g = (key, fn) => {
@@ -187,6 +240,7 @@ if (!this.bgmusic) {
 
     this.bgmusic.play();
 }
+
 
 
         // WALK animation
@@ -1027,7 +1081,7 @@ const config = {
             debug: false 
         },
     },
-    scene: [GameScene],
+    scene: [LoadingScene, GameScene],
 };
 
 let game;
