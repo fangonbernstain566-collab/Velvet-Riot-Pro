@@ -533,7 +533,7 @@ if (this.boss) {
             return;
         }
 
-        enemyDefs.forEach(({ x, type }) => {
+       enemyDefs.forEach(({ x, type }) => {
 
     let y = this.GROUND_Y - 32;
 
@@ -542,32 +542,31 @@ if (this.boss) {
         y = this.GROUND_Y - 200;
     }
 
+    // ✅ USE y HERE (this is the main fix)
     const e = this.enemies.create(x, y, type);
 
     e.setDisplaySize(48, 56).refreshBody();
     e.setCollideWorldBounds(true);
     e.setBounce(1);
-
-    e.body.setGravityY(200);
-
     e.enemyType = type;
-
-    // 🛩️ STEP 4 GOES HERE ↓↓↓
-    if (type === 'flyingCat') {
-        e.setGravityY(-this.physics.world.gravity.y); // cancel gravity
-        e.body.allowGravity = false;
-
-        e.setVelocityX(Phaser.Math.Between(60, 120) * (Math.random() > 0.5 ? 1 : -1));
-
-        e.startY = y; // save hover position
-    }
-
-    // only ground enemies use gravity
-    if (type !== 'flyingCat') {
-        e.body.setGravityY(200);
-    }
-
     e.setDepth(5);
+
+    // 🛩️ Flying enemy
+    if (type === 'flyingCat') {
+        e.body.allowGravity = false; // enough, no need for negative gravity
+        e.setVelocityX(
+            Phaser.Math.Between(60, 120) * (Math.random() > 0.5 ? 1 : -1)
+        );
+        e.startY = y;
+    }
+
+    // 🟥 Ground enemy
+    else {
+        e.body.setGravityY(200);
+        e.setVelocityX(
+            Phaser.Math.Between(60, 100) * (Math.random() > 0.5 ? 1 : -1)
+        );
+    }
 });
 }
 
