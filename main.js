@@ -213,6 +213,16 @@ class GameScene extends Phaser.Scene {
             ctx.arc(32, 32, 14, 0, Math.PI * 2);
             ctx.fill();
         });
+         //Cloud
+       g('cloud', ctx => {
+            ctx.fillStyle = 'rgba(255,255,255,0.85)';
+            ctx.beginPath();
+            ctx.arc(28, 36, 18, 0, Math.PI * 2);
+            ctx.arc(42, 30, 22, 0, Math.PI * 2);
+            ctx.arc(20, 30, 14, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        
 
         // Building bg deco
         g('building', ctx => {
@@ -300,6 +310,22 @@ this.anims.create({
         // Sun/Moon disc
         this.sunDisc = this.add.circle(W / 2, H * 0.3, 26, 0xfffde0)
             .setScrollFactor(0).setDepth(1);
+        
+        // ── Clouds ───────────────────────────────────────────────────────────
+        this.cloudObjs = [];
+        for (let i = 0; i < 8; i++) {
+            const cx = Phaser.Math.Between(0, W);
+            const cy = Phaser.Math.Between(30, H * 0.45);
+            const scale = Phaser.Math.FloatBetween(0.6, 1.6);
+            const speed = Phaser.Math.FloatBetween(0.15, 0.45);
+            const cloud = this.add.image(cx, cy, 'cloud')
+                .setScrollFactor(0)
+                .setDepth(1)
+                .setScale(scale)
+                .setAlpha(Phaser.Math.FloatBetween(0.4, 0.85));
+            cloud.cloudSpeed = speed;
+            this.cloudObjs.push(cloud);
+        }
 
         // ── Background buildings ──────────────────────────────────────────────
         this.windowObjs = [];
@@ -1058,6 +1084,14 @@ if (this.player.y > this.scale.height + 50) {
 
         const starAlpha = isNight ? 0.9 : (isDawn ? 0.2 : 0);
         this.starObjs.forEach(s => s.setAlpha(starAlpha * (0.4 + Math.random() * 0.6)));
+
+        // ── Move clouds ───────────────────────────────────────────────────────
+        // ── Move clouds ───────────────────────────────────────────────────────
+        this.cloudObjs.forEach(cloud => {
+            cloud.x += cloud.cloudSpeed;
+            if (cloud.x > this.scale.width + 80) cloud.x = -80; // wrap around
+            cloud.setAlpha(isNight ? 0.1 : (isDawn ? 0.4 : 0.75));
+        });
 
         const winCol = isNight ? 0xffdd88 : 0x1a1a3e;
         const winAlpha = isNight ? 1 : (isDawn ? 0.4 : 0);
