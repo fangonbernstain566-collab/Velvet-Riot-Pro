@@ -608,9 +608,16 @@ if (this.boss) {
                 { x: 2100, type: 'cat'   },
             ];
         } else if (this.currentLevel === 3) {
-            // BOSS LEVEL - Only one big boss
-            this.createBoss();
-            return;
+            // Mini-wave first, boss spawns after clearing them
+            this.bossSpawned = false;
+            enemyDefs = [
+                { x: 300,  type: 'robot' },
+                { x: 550,  type: 'flyingCat' },
+                { x: 800,  type: 'cat' },
+                { x: 1050, type: 'flyingCat' },
+                { x: 1300, type: 'robot' },
+                { x: 1550, type: 'cat' },
+            ];
         }
 
        enemyDefs.forEach(({ x, type }) => {
@@ -716,11 +723,92 @@ if (this.boss) {
         }
     }
 
+   
+    // ── Boss Fight Banner ─────────────────────────────────────────────────────
+    showBossFightBanner() {
+        const W = this.scale.width;
+        const H = this.scale.height;
+
+        // Dark flash overlay
+        const flash = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0)
+            .setScrollFactor(0).setDepth(25);
+
+        // Banner text
+        const banner = this.add.text(W / 2, H / 2, '⚠ BOSS FIGHT ⚠', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '22px',
+            color: '#ff0000',
+            backgroundColor: '#00000099',
+            padding: { x: 20, y: 12 },
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(26).setAlpha(0);
+
+        const sub = this.add.text(W / 2, H / 2 + 55, 'DEFEAT THE BOSS!', {
+            fontFamily: '"Press Start 2P"',
+            fontSize: '10px',
+            color: '#ffdd00',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(26).setAlpha(0);
+
+        // Fade in
+        this.tweens.add({
+            targets: [flash, banner, sub],
+            alpha: { from: 0, to: 1 },
+            duration: 400,
+            onComplete: () => {
+                // Hold for 1.5s then fade out and spawn boss
+                this.time.delayedCall(1500, () => {
+                    this.tweens.add({
+                        targets: [flash, banner, sub],
+                        alpha: 0,
+                        duration: 400,
+                        onComplete: () => {
+                            flash.destroy();
+                            banner.destroy();
+                            sub.destroy();
+
+                            // Now spawn the boss
+                            this.cameras.main.shake(600, 0.02);
+                            this.createBoss();
+                            this.physics.add.collider(this.boss, this.groundGroup);
+                            this.physics.add.overlap(this.player, this.boss, () => {
+                                this.hitPlayer();
+                            });
+                            this.physics.add.overlap(this.bullets, this.boss, (boss, bullet) => {
+                                if (!bullet.active || !boss.active || bullet.hasHitBoss) return;
+                                bullet.hasHitBoss = true;
+                                bullet.disableBody(true, true);
+                                this.bossHP = Math.max(0, this.bossHP - 1);
+                                this.updateBossHPDisplay();
+                                this.spawnExplosion(bullet.x, bullet.y);
+                                this.tweens.add({ targets: boss, alpha: 0.5, duration: 100, yoyo: true });
+                                if (this.bossHP <= 0) {
+                                    boss.disableBody(true, true);
+                                    this.boss.setActive(false);
+                                    this.boss.setVisible(false);
+                                    this.score += 500;
+                                    this.scoreTxt.setText('SCORE: ' + this.score);
+                                    this.spawnExplosion(boss.x, boss.y);
+                                    this.checkLevelComplete();
+                                }
+                            });
+                        }
+                    });
+                });
+            }
+        });
+    }
     // ── Check if level is complete ────────────────────────────────────────────
     checkLevelComplete() {
         const noEnemies = this.enemies.countActive() === 0;
         const noBoss = !this.boss || !this.boss.active;
-        
+
+        // Level 3: mini-wave cleared → spawn boss
+        if (this.currentLevel === 3 && noEnemies && !this.bossSpawned && !this.overlayShown) {
+            this.bossSpawned = true;
+            this.showBossFightBanner();
+            return;
+        }
+
+        // All done
         if (noEnemies && noBoss && !this.levelComplete && !this.overlayShown) {
             this.levelComplete = true;
             this.overlayShown = true;
