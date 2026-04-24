@@ -411,7 +411,7 @@ this.player.setDepth(5);
 
         // ── Bullets ───────────────────────────────────────────────────────────
         this.bullets = this.physics.add.group({
-            maxSize: 20,
+            maxSize: 40,
             runChildUpdate: true,
         });
         this.lastShot = 0;
@@ -1081,18 +1081,26 @@ else {
                 this.sound.play('laserShoot', { volume: 0.5 });
             }
 
-            const bulletY = this.player.y + 12;
-            const bx = this.player.x;
+            const bulletY = this.player.y + 20;
+            const bx = this.player.flipX ? this.player.x - 20 : this.player.x + 20;
             const b = this.bullets.get(bx, bulletY, 'bullet');
             if (b) {
                 b.enableBody(true, bx, bulletY, true, true);
-                b.setDisplaySize(36, 20);  // BIGGER (was 24x12)
-                b.setVelocityX(this.player.flipX ? -600 : 600);
+                b.setDisplaySize(36, 20);
+                b.setVelocityX(this.player.flipX ? -700 : 700);
                 b.setVelocityY(0);
                 b.body.setAllowGravity(false);
-                b.setDepth(6);  // FIX: Depth 6 so bullets render in front of buildings (depth 2-3)
-                b.hasHitBoss = false;  // Reset flag for each new bullet
-                this.time.delayedCall(1200, () => { if (b.active) b.disableBody(true, true); });
+                b.setDepth(6);
+                b.hasHitBoss = false;
+                // Kill bullet if it leaves world bounds
+                b.setCollideWorldBounds(true);
+                b.body.onWorldBounds = true;
+                b.body.world.on('worldbounds', (body) => {
+                    if (body.gameObject === b && b.active) {
+                        b.disableBody(true, true);
+                    }
+                });
+                this.time.delayedCall(3000, () => { if (b && b.active) b.disableBody(true, true); });
             }
         }
 
